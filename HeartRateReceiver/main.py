@@ -3,15 +3,41 @@ import json
 import logging
 import socket
 
+SERVER_PORT = 8000
+
+LOG_CSV = False
+
+# OSC controller
+
 try:
-    from osc_controller import send_heart_rate as osc_send_heart_rate
+    from osc_controller import HeartRateOSCSender, OSC_IP, OCS_PORT
+
+    heartRateOSCSender = HeartRateOSCSender(OSC_IP, OCS_PORT)
+
+    def osc_send_heart_rate(heart_rate, timestamp=None):
+        heartRateOSCSender.send_heart_rate(heart_rate, timestamp)
+
 except ImportError:
     print("Warning: OSC controller not available. Heart rate will not be sent to OSC.")
 
-    def send_heart_rate_osc(heart_rate, timestamp=None):
+    def osc_send_heart_rate(heart_rate, timestamp=None):
         _, _ = heart_rate, timestamp
 
-SERVER_PORT = 8000
+# CSV logger
+
+if LOG_CSV:
+
+    import datetime
+    from csv_logger import CSVLogger
+
+    csv_logger = CSVLogger.create_logger_from_date_time(datetime.datetime.now())
+
+    def csv_log_heart_rate(heart_rate, timestamp):
+        csv_logger.write(timestamp, heart_rate)
+
+else:
+    def csv_log_heart_rate(heart_rate, timestamp):
+        _, _ = heart_rate, timestamp
 
 
 class HeatRateManager:
@@ -26,6 +52,9 @@ class HeatRateManager:
 
         # Send heart rate to OSC if available
         osc_send_heart_rate(heart_rate, timestamp)
+
+        # Log heart rate to CSV if available
+        csv_log_heart_rate(heart_rate, timestamp)
 
     def get_heart_rate(self):
         return self.heart_rate

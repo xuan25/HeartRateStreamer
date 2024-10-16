@@ -13,8 +13,3 @@ class HeartRateOSCSender:
         if timestamp is None or timestamp > self.last_timestamp:
             self.client.send_message("/avatar/parameters/HR", heart_rate)
             self.last_timestamp = timestamp
-
-heartRateOSCSender = HeartRateOSCSender(OSC_IP, OCS_PORT)
-
-def send_heart_rate(heart_rate, timestamp=None):
-    heartRateOSCSender.send_heart_rate(heart_rate, timestamp)
