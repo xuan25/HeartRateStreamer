@@ -7,12 +7,14 @@ from matplotlib.animation import FuncAnimation
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 
+SMOOTHING_FACTOR = 0.9
 
 class HeartRateMonitor:
     def __init__(self, log_file):
         self.log_file = log_file
         self.timestamps = []
         self.heart_rates = []
+        self.heart_rates_smoothed = []
         self.csv_file = open(self.log_file, 'r', encoding='utf-8')
         self.csv_reader = csv.DictReader(self.csv_file)
         self.ani = None
@@ -30,10 +32,19 @@ class HeartRateMonitor:
             self.timestamps.append(float(row['timestamp']))
             self.heart_rates.append(float(row['heart_rate']))
 
+            # exponential moving average
+            if len(self.heart_rates_smoothed) < 1:
+                self.heart_rates_smoothed.append(float(row['heart_rate']))
+            else:
+                weight = SMOOTHING_FACTOR
+                smoothed_val = self.heart_rates_smoothed[-1] * weight + (1 - weight) * self.heart_rates[-1]
+                self.heart_rates_smoothed.append(smoothed_val)
+
     def update_plot(self):
         plt.cla()
 
-        plt.plot(self.timestamps, self.heart_rates)
+        plt.plot(self.timestamps, self.heart_rates, alpha=0.5)
+        plt.plot(self.timestamps, self.heart_rates_smoothed)
 
         plt.xlabel('Time')
         plt.ylabel('Heart Rate')
