@@ -1,15 +1,18 @@
-
 import csv
 import datetime
 import os
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 
 SMOOTHING_FACTOR = 0.9
 
-class HeartRateMonitor:
+class HeartRateFetcher:
+
     def __init__(self, log_file):
         self.log_file = log_file
         self.timestamps = []
@@ -17,62 +20,88 @@ class HeartRateMonitor:
         self.heart_rates_smoothed = []
         self.csv_file = open(self.log_file, 'r', encoding='utf-8')
         self.csv_reader = csv.DictReader(self.csv_file)
-        self.ani = None
-
-    def show(self):
-        self.fetch_data()
-        self.update_plot()
-
-        self.ani = FuncAnimation(
-            plt.gcf(), self.animate, interval=5000, cache_frame_data=False)
-        plt.show()
 
     def fetch_data(self):
+        extend_timestamps = []
+        extend_heart_rates = []
+        extend_heart_rates_smoothed = []
+
         for row in self.csv_reader:
-            self.timestamps.append(float(row['timestamp']))
-            self.heart_rates.append(float(row['heart_rate']))
+
+            timestamp = float(row['timestamp'])
+            timestamp = datetime.datetime.fromtimestamp(
+                timestamp).strftime('%H:%M:%S')
+            heart_rate = float(row['heart_rate'])
+
+            self.timestamps.append(timestamp)
+            self.heart_rates.append(heart_rate)
+
+            extend_timestamps.append(timestamp)
+            extend_heart_rates.append(heart_rate)
 
             # exponential moving average
             if len(self.heart_rates_smoothed) < 1:
-                self.heart_rates_smoothed.append(float(row['heart_rate']))
+                self.heart_rates_smoothed.append(heart_rate)
+                extend_heart_rates_smoothed.append(heart_rate)
             else:
                 weight = SMOOTHING_FACTOR
-                smoothed_val = self.heart_rates_smoothed[-1] * weight + (1 - weight) * self.heart_rates[-1]
+                smoothed_val = self.heart_rates_smoothed[-1] * \
+                    weight + (1 - weight) * self.heart_rates[-1]
                 self.heart_rates_smoothed.append(smoothed_val)
+                extend_heart_rates_smoothed.append(smoothed_val)
 
-    def update_plot(self):
-        plt.cla()
+        return extend_timestamps, extend_heart_rates, extend_heart_rates_smoothed
 
-        plt.plot(self.timestamps, self.heart_rates, alpha=0.5)
-        plt.plot(self.timestamps, self.heart_rates_smoothed)
 
-        plt.xlabel('Time')
-        plt.ylabel('Heart Rate')
-        plt.title('Heart Rate Monitor')
+class HeartRateMonitor:
 
-        plt.xticks(None)
-        plt.yticks(None)
+    def __init__(self, log_file):
+        self.heartRateFetcher = HeartRateFetcher(log_file)
+        self.app = None
+    
+    def run(self):
+        self.heartRateFetcher.fetch_data()
 
-        def format_fn(x, pos):
-            _ = pos
-            return datetime.datetime.fromtimestamp(x).strftime('%H:%M:%S')
+        self.app = dash.Dash(__name__, title='Heart Rate Monitor', update_title=None)
+        self.app.layout = html.Div([
+            dcc.Graph(id='graph', figure={
+                'data': [
+                    {'x': self.heartRateFetcher.timestamps, 'y': self.heartRateFetcher.heart_rates,
+                        'type': 'scatter', 'mode': 'lines', 'name': 'Heart Rate'},
+                    {'x': self.heartRateFetcher.timestamps, 'y': self.heartRateFetcher.heart_rates_smoothed,
+                        'type': 'scatter', 'mode': 'lines', 'name': 'Smoothed Heart Rate'}
+                ],
+                'layout': {
+                    'title': 'Real-time Heart Rate',
+                    'xaxis': {'title': 'Time'},
+                    'yaxis': {'title': 'Heart Rate'},
+                    'showlegend': True,
+                }},
+                animate=True),
+            dcc.Interval(id="interval")
+        ])
 
-        ax = plt.gca()
-        ax.xaxis.set_major_formatter(plt.FuncFormatter(format_fn))
+        self.app.callback(
+            Output('graph', 'extendData'),
+            [
+                Input('interval', 'n_intervals')
+            ]
+        )(self.update_graphs)
 
-        plt.grid(True)
+        self.app.run_server()
 
-        plt.tight_layout()
-
-    def animate(self, i):
-        _ = i
-
-        self.fetch_data()
-        self.update_plot()
+    def update_graphs(self, n_intervals):
+        _ = n_intervals
+        extend_timestamps, extend_heart_rates, extend_heart_rates_smoothed = self.heartRateFetcher.fetch_data()
+        return {
+            'x': [extend_timestamps, extend_timestamps],
+            'y': [extend_heart_rates, extend_heart_rates_smoothed]
+        }, [0, 1]
 
 
 def main():
 
+    # find latest log file
     def parse_timestamp_from_file_path(path):
         filename = os.path.basename(path)
         return datetime.datetime.strptime(filename, 'log_%Y-%m-%d_%H-%M-%S.csv')
@@ -83,7 +112,7 @@ def main():
     print(f'Latest log file: {latest_log_file}')
 
     heartRateMonitor = HeartRateMonitor(latest_log_file)
-    heartRateMonitor.show()
+    heartRateMonitor.run()
 
 
 if __name__ == '__main__':
