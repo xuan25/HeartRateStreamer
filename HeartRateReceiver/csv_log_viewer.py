@@ -103,8 +103,11 @@ def main():
 
     # find latest log file
     def parse_timestamp_from_file_path(path):
-        filename = os.path.basename(path)
-        return datetime.datetime.strptime(filename, 'log_%Y-%m-%d_%H-%M-%S.csv')
+        try:
+            filename = os.path.basename(path)
+            return datetime.datetime.strptime(filename, 'log_%Y-%m-%d_%H-%M-%S.csv')
+        except ValueError:
+            return datetime.datetime.min
 
     latest_log_file = max([os.path.join(LOG_DIR, filename) for filename in os.listdir(
         LOG_DIR) if filename.endswith('.csv')], key=parse_timestamp_from_file_path)
