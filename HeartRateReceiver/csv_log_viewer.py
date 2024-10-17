@@ -20,6 +20,7 @@ class HeartRateFetcher:
         self.heart_rates_smoothed = []
         self.csv_file = open(self.log_file, 'r', encoding='utf-8')
         self.csv_reader = csv.DictReader(self.csv_file)
+        self.last_timestamp = 0
 
     def fetch_data(self):
         extend_timestamps = []
@@ -29,6 +30,11 @@ class HeartRateFetcher:
         for row in self.csv_reader:
 
             timestamp = float(row['timestamp'])
+
+            if timestamp <= self.last_timestamp:
+                continue
+            self.last_timestamp = timestamp
+            
             timestamp = datetime.datetime.fromtimestamp(
                 timestamp).strftime('%Y-%m-%dT%H:%M:%S%z')
             heart_rate = float(row['heart_rate'])
