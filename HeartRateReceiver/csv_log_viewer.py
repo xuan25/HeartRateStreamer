@@ -30,7 +30,7 @@ class HeartRateFetcher:
 
             timestamp = float(row['timestamp'])
             timestamp = datetime.datetime.fromtimestamp(
-                timestamp).strftime('%H:%M:%S')
+                timestamp).strftime('%Y-%m-%dT%H:%M:%S%z')
             heart_rate = float(row['heart_rate'])
 
             self.timestamps.append(timestamp)
