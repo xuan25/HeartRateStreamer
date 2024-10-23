@@ -47,8 +47,12 @@ struct ContentView: View {
                     heartRateManager.startHeartRateCollection()
                 }
             }) {
-                Image(systemName: heartRateManager.isActive ? "stop.fill" : "play.fill")
-                    .font(.title2)
+                if heartRateManager.isBusy {
+                    ProgressView()
+                } else {
+                    Image(systemName: heartRateManager.isActive ? "stop.fill" : "play.fill")
+                        .font(.title2)
+                }
             }.background(heartRateManager.isActive ? Color.red : Color.green).cornerRadius(22)
             .disabled(heartRateManager.isBusy)
             .padding(.bottom, 10)
