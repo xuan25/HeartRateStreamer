@@ -11,13 +11,18 @@ LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 
 SMOOTHING_FACTOR = 0.9
 
+HEART_RATE_THRESHOLD = 130
+
 class HeartRateFetcher:
 
     def __init__(self, log_file):
         self.log_file = log_file
+
         self.timestamps = []
         self.heart_rates = []
         self.heart_rates_smoothed = []
+        self.time_above_threshold = []
+
         self.csv_file = open(self.log_file, 'r', encoding='utf-8')
         self.csv_reader = csv.DictReader(self.csv_file)
         self.last_timestamp = 0
@@ -26,6 +31,7 @@ class HeartRateFetcher:
         extend_timestamps = []
         extend_heart_rates = []
         extend_heart_rates_smoothed = []
+        extend_time_above_threshold = []
 
         for row in self.csv_reader:
 
@@ -34,7 +40,7 @@ class HeartRateFetcher:
             if timestamp <= self.last_timestamp:
                 continue
             self.last_timestamp = timestamp
-            
+
             timestamp = datetime.datetime.fromtimestamp(
                 timestamp).strftime('%Y-%m-%dT%H:%M:%S%z')
             heart_rate = float(row['heart_rate'])
@@ -47,16 +53,25 @@ class HeartRateFetcher:
 
             # exponential moving average
             if len(self.heart_rates_smoothed) < 1:
-                self.heart_rates_smoothed.append(heart_rate)
-                extend_heart_rates_smoothed.append(heart_rate)
+                heart_rate_smoothed = heart_rate
+                self.heart_rates_smoothed.append(heart_rate_smoothed)
+                extend_heart_rates_smoothed.append(heart_rate_smoothed)
             else:
                 weight = SMOOTHING_FACTOR
-                smoothed_val = self.heart_rates_smoothed[-1] * \
+                heart_rate_smoothed = self.heart_rates_smoothed[-1] * \
                     weight + (1 - weight) * self.heart_rates[-1]
-                self.heart_rates_smoothed.append(smoothed_val)
-                extend_heart_rates_smoothed.append(smoothed_val)
+                self.heart_rates_smoothed.append(heart_rate_smoothed)
+                extend_heart_rates_smoothed.append(heart_rate_smoothed)
 
-        return extend_timestamps, extend_heart_rates, extend_heart_rates_smoothed
+            last_time_above_threshold = self.time_above_threshold[-1] if len(self.time_above_threshold) > 0 else 0.0
+            if heart_rate > HEART_RATE_THRESHOLD:
+                self.time_above_threshold.append(last_time_above_threshold + (5.0 / 60))
+                extend_time_above_threshold.append(last_time_above_threshold + (5.0 / 60))
+            else:
+                self.time_above_threshold.append(last_time_above_threshold)
+                extend_time_above_threshold.append(last_time_above_threshold)
+
+        return extend_timestamps, extend_heart_rates, extend_heart_rates_smoothed, extend_time_above_threshold
 
 
 class HeartRateMonitor:
@@ -84,11 +99,26 @@ class HeartRateMonitor:
                     'showlegend': True,
                 }},
                 animate=True),
+            dcc.Graph(id='graph2', figure={
+                'data': [
+                    {'x': self.heartRateFetcher.timestamps, 'y': self.heartRateFetcher.time_above_threshold,
+                        'type': 'scatter', 'mode': 'lines', 'name': 'Time Above Threshold'},
+                ],
+                'layout': {
+                    'title': f'Estimated Duration Above Threshold ({HEART_RATE_THRESHOLD})',
+                    'xaxis': {'title': 'Duration'},
+                    'yaxis': {'title': 'Minutes'},
+                    'showlegend': True,
+                }},
+                animate=True),
             dcc.Interval(id="interval")
         ])
 
         self.app.callback(
-            Output('graph', 'extendData'),
+            [
+                Output('graph', 'extendData'),
+                Output('graph2', 'extendData'),
+            ],
             [
                 Input('interval', 'n_intervals')
             ]
@@ -98,11 +128,14 @@ class HeartRateMonitor:
 
     def update_graphs(self, n_intervals):
         _ = n_intervals
-        extend_timestamps, extend_heart_rates, extend_heart_rates_smoothed = self.heartRateFetcher.fetch_data()
-        return {
+        extend_timestamps, extend_heart_rates, extend_heart_rates_smoothed, extend_time_above_threshold = self.heartRateFetcher.fetch_data()
+        return ({
             'x': [extend_timestamps, extend_timestamps],
             'y': [extend_heart_rates, extend_heart_rates_smoothed]
-        }, [0, 1]
+        }), ({
+            'x': [extend_timestamps],
+            'y': [extend_time_above_threshold]
+        })
 
 
 def main():
