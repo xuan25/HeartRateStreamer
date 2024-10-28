@@ -82,7 +82,7 @@ class HeartRateMonitor:
     
     def run(self):
         self.heartRateFetcher.fetch_data()
-
+        
         self.app = dash.Dash(__name__, title='Heart Rate Monitor', update_title=None)
         self.app.layout = html.Div([
             dcc.Graph(id='graph', figure={
@@ -124,7 +124,7 @@ class HeartRateMonitor:
             ]
         )(self.update_graphs)
 
-        self.app.run_server()
+        self.app.run()
 
     def update_graphs(self, n_intervals):
         _ = n_intervals

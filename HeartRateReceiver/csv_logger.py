@@ -6,19 +6,19 @@ CSV_LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 
 class CSVLogger:
 
-    def __init__(self, log_file):
-        self.log_file = log_file
+    def __init__(self, log_file_path):
+        self.log_file_path = log_file_path
 
-        log_dir = os.path.dirname(log_file)
+        log_dir = os.path.dirname(log_file_path)
         if not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
 
-        with open(self.log_file, mode='w', newline='', encoding='utf-8') as file:
+        with open(self.log_file_path, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(['timestamp', 'heart_rate'])
 
     def write(self, timestamp, heart_rate):
-        with open(self.log_file, mode='a', newline='', encoding='utf-8') as file:
+        with open(self.log_file_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow([timestamp, heart_rate])
 

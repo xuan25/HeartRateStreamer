@@ -6,6 +6,7 @@ import socket
 SERVER_PORT = 8000
 
 LOG_CSV = False
+START_VISUALIZATION = False
 
 # OSC controller
 
@@ -39,6 +40,52 @@ else:
     def csv_log_heart_rate(heart_rate, timestamp):
         _, _ = heart_rate, timestamp
 
+# Visualization
+
+if START_VISUALIZATION and LOG_CSV:
+    try:
+        from csv_log_viewer import HeartRateMonitor
+        import threading
+        import os, signal
+
+        heartRateMonitor = HeartRateMonitor(csv_logger.log_file_path)
+
+        def start_visualization():
+            print("Starting visualization...")
+            threading.Thread(target=heartRateMonitor.run).start()
+
+        def stop_visualization():
+            print("Stopping visualization...")
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    except ImportError:
+        print("Warning: Visualization not available. Please install the package `dash`.")
+        START_VISUALIZATION = False
+
+        def start_visualization():
+            pass
+
+        def stop_visualization():
+            pass
+
+elif START_VISUALIZATION:
+    print("Warning: Visualization not available. Please enable CSV logging.")
+    START_VISUALIZATION = False
+
+    def start_visualization():
+        pass
+
+    def stop_visualization():
+        pass
+
+else:
+    def start_visualization():
+        pass
+
+    def stop_visualization():
+        pass
+
+# Core
 
 class HeatRateManager:
 
@@ -120,7 +167,6 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
-
 def main():
     logging.basicConfig(level=logging.INFO)
 
@@ -134,6 +180,8 @@ def main():
     server_address = ('', SERVER_PORT)
     http_server = HTTPServer(server_address, HTTPRequestHandler)
 
+    start_visualization()
+
     try:
         http_server.serve_forever()
     except KeyboardInterrupt:
@@ -145,6 +193,7 @@ def main():
     # reset OSC heart rate
     osc_send_heart_rate(0.0)
 
+    stop_visualization()
 
 if __name__ == '__main__':
     main()
